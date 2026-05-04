@@ -67,19 +67,19 @@ export function findBillCandidates(txs: Transaction[]): BillCandidate[] {
 
   const candidates: BillCandidate[] = [];
 
-  for (const [, group] of groups) {
+  for (const [, group] of Array.from(groups)) {
     if (group.length < 2) continue;
 
-    const months = new Set(group.map(t => t.date.slice(0, 7)));
+    const months = new Set(group.map((t: Transaction) => t.date.slice(0, 7)));
     if (months.size < 2) continue;
 
-    const days = group.map(t => new Date(t.date + 'T12:00:00').getDate());
+    const days = group.map((t: Transaction) => new Date(t.date + 'T12:00:00').getDate());
     const freq = new Map<number, number>();
     for (const d of days) freq.set(d, (freq.get(d) ?? 0) + 1);
-    const dueDay = [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    const dueDay = Array.from(freq.entries()).sort((a, b) => b[1] - a[1])[0][0];
 
     const avgAmount =
-      Math.round((group.reduce((s, t) => s + Math.abs(t.amount), 0) / group.length) * 100) / 100;
+      Math.round((group.reduce((s: number, t: Transaction) => s + Math.abs(t.amount), 0) / group.length) * 100) / 100;
 
     candidates.push({
       name: group[0].description,
