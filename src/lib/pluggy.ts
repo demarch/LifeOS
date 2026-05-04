@@ -137,6 +137,48 @@ export async function syncPluggy(): Promise<SyncResult> {
           }
         }
       }
+      // Investments (CDB, LCI, LCA, Tesouro, etc.) — separate Pluggy endpoint
+      try {
+        const { results: investments } = await (client as any).fetchInvestments(itemId);
+        for (const inv of investments) {
+          if (inv.status !== 'ACTIVE') continue;
+
+          const bank = extractBankName(inv.issuer ?? inv.name);
+          const color = bankColor(bank);
+          // Human-readable name: "CDB 100% CDI" or fallback to raw name
+          const invName = inv.subtype && inv.rateType
+            ? `${inv.subtype} ${inv.rate}% ${inv.rateType}`
+            : inv.name;
+          // balance = amountWithdrawal (liquid value after taxes, what you'd actually get)
+          const balance = inv.balance ?? inv.amountWithdrawal ?? 0;
+
+          const existing = db.select().from(accounts)
+            .where(eq(accounts.pluggyId, inv.id)).get();
+          if (existing) {
+            db.update(accounts)
+              .set({ balance, updatedAt: now })
+              .where(eq(accounts.pluggyId, inv.id))
+              .run();
+          } else {
+            db.insert(accounts).values({
+              id: randomUUID(),
+              pluggyId: inv.id,
+              name: invName,
+              bank,
+              type: 'investment',
+              balance,
+              color,
+              last4: null,
+              limit: null,
+              updatedAt: now,
+            }).run();
+          }
+          accountsSynced++;
+        }
+      } catch {
+        // fetchInvestments may not be available for all items — silently skip
+      }
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`Item ${itemId}: ${msg}`);
