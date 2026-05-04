@@ -6,6 +6,13 @@ import { randomUUID } from 'crypto';
 import { bankColor } from './bank-colors';
 import { findBillCandidates, findSubscriptionCandidates } from './auto-detect';
 
+// Credit card invoice accounts returned by Pluggy — not real accounts
+const INVOICE_ACCOUNT_RE = /\bfatur[a]/i;
+
+// Invoice payment transactions in checking — these are debt settlements, not expenses
+const INVOICE_PAYMENT_RE =
+  /pagamento.{0,12}fatura|pagto.{0,8}fat|pgt.{0,8}fatura|pagamento.{0,12}cart[aã]o|pagto.{0,8}cart[aã]o|fatura.{0,8}cart[aã]o|d[eé]b.{0,6}aut.{0,12}fatura|d[eé]b.{0,6}aut.{0,12}cart[aã]o/i;
+
 function makeClient() {
   return new PluggyClient({
     clientId: process.env.PLUGGY_CLIENT_ID!,
@@ -50,6 +57,9 @@ export async function syncPluggy(): Promise<SyncResult> {
       const { results: pluggyAccounts } = await client.fetchAccounts(itemId);
 
       for (const pa of pluggyAccounts) {
+        // Skip invoice sub-accounts (faturas abertas/fechadas returned as separate accounts)
+        if (INVOICE_ACCOUNT_RE.test(pa.name)) continue;
+
         const bank = (pa as any).institutionNumber ?? pa.name.split(' ')[0];
         const type = pa.type === 'CREDIT' ? 'credit' : 'checking';
         const last4 = (pa.number ?? '').slice(-4);
@@ -97,13 +107,18 @@ export async function syncPluggy(): Promise<SyncResult> {
               ? -Math.abs(pt.amount)
               : Math.abs(pt.amount);
 
+            // Invoice payments from checking are internal transfers — exclude from expense totals
+            const txType = INVOICE_PAYMENT_RE.test(pt.description)
+              ? 'transfer'
+              : pt.type.toLowerCase();
+
             db.insert(transactions).values({
               id: randomUUID(),
               pluggyId: pt.id,
               accountId: acct.id,
               description: pt.description,
               amount,
-              type: pt.type.toLowerCase(),
+              type: txType,
               category: pt.category ?? '',
               date: toDateString(pt.date),
               createdAt: now,

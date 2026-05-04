@@ -81,14 +81,18 @@ export function TransactionsTable({ transactions, accounts }: TransactionsTableP
                     {dayLabel(t.date)}
                   </td>
                   <td style={{ color: 'var(--text-0)' }}>{t.description}</td>
-                  <td><Tag>{t.category || '—'}</Tag></td>
+                  <td>
+                    {t.type === 'transfer'
+                      ? <Tag tone="info">transferência</Tag>
+                      : <Tag>{t.category || '—'}</Tag>}
+                  </td>
                   <td>
                     <span style={{ color: acct?.color }}>●</span>{' '}
                     <span style={{ color: 'var(--text-2)' }}>{acct?.bank ?? '—'}</span>
                   </td>
                   <td
                     className="num-cell mask"
-                    style={{ color: t.amount > 0 ? 'var(--good)' : 'var(--text-0)' }}
+                    style={{ color: t.type === 'transfer' ? 'var(--text-3)' : t.amount > 0 ? 'var(--good)' : 'var(--text-0)' }}
                   >
                     {fmt(t.amount, { signed: true })}
                   </td>

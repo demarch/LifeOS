@@ -7,7 +7,7 @@ interface CategoryAllocationProps {
 
 export function CategoryAllocation({ transactions }: CategoryAllocationProps) {
   const month = new Date().toISOString().slice(0, 7);
-  const debits = transactions.filter(t => t.amount < 0 && t.date.startsWith(month));
+  const debits = transactions.filter(t => t.amount < 0 && t.type !== 'transfer' && t.date.startsWith(month));
 
   const catMap = new Map<string, number>();
   for (const t of debits) {

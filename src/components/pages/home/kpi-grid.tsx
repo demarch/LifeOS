@@ -21,10 +21,10 @@ export function KpiGrid({ accounts, bills, transactions }: KpiGridProps) {
 
   const month = new Date().toISOString().slice(0, 7);
   const monthOut = transactions
-    .filter(t => t.amount < 0 && t.date.startsWith(month))
+    .filter(t => t.amount < 0 && t.type !== 'transfer' && t.date.startsWith(month))
     .reduce((s, t) => s + Math.abs(t.amount), 0);
   const monthIn = transactions
-    .filter(t => t.amount > 0 && t.date.startsWith(month))
+    .filter(t => t.amount > 0 && t.type !== 'transfer' && t.date.startsWith(month))
     .reduce((s, t) => s + t.amount, 0) || 1;
 
   const unpaid = bills.filter(b => !b.isPaid);
