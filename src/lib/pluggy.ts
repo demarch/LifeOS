@@ -1,7 +1,7 @@
 import { PluggyClient } from 'pluggy-sdk';
 import { db } from '@/db/client';
 import { accounts, transactions, bills, subscriptions, syncLog } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { bankColor, extractBankName } from './bank-colors';
 import { findBillCandidates, findSubscriptionCandidates } from './auto-detect';
@@ -142,46 +142,43 @@ export async function syncPluggy(): Promise<SyncResult> {
   const allAccts = db.select().from(accounts).all();
   const checkingIds = new Set(allAccts.filter(a => a.type === 'checking').map(a => a.id));
 
+  // Wipe previous auto-detections before re-running so stale data never accumulates.
+  // Preserve bills that the user has already reviewed (needsReview=0) or paid.
+  db.delete(subscriptions).where(eq(subscriptions.source, 'auto')).run();
+  db.delete(bills).where(and(eq(bills.source, 'auto'), eq(bills.needsReview, 1))).run();
+
   // Subscriptions: detected from all non-transfer debits (credit card charges are the source)
   const nonTransferTxs = allTxs.filter(t => t.type !== 'transfer');
   const subCandidates = findSubscriptionCandidates(nonTransferTxs);
   for (const c of subCandidates) {
-    const exists = db.select().from(subscriptions).all()
-      .find(s => s.name.toLowerCase() === c.name.toLowerCase());
-    if (!exists) {
-      db.insert(subscriptions).values({
-        id: randomUUID(),
-        name: c.name,
-        amount: c.amount,
-        billingDay: c.billingDay,
-        category: c.category,
-        source: 'auto',
-        alertDays: 3,
-        isActive: 1,
-        createdAt: now,
-      }).run();
-    }
+    db.insert(subscriptions).values({
+      id: randomUUID(),
+      name: c.name,
+      amount: c.amount,
+      billingDay: c.billingDay,
+      category: c.category,
+      source: 'auto',
+      alertDays: 3,
+      isActive: 1,
+      createdAt: now,
+    }).run();
   }
 
   // Bills: only checking account debits — credit card transactions are not "contas a pagar"
   const checkingTxs = nonTransferTxs.filter(t => checkingIds.has(t.accountId));
   const billCandidates = findBillCandidates(checkingTxs);
   for (const c of billCandidates) {
-    const exists = db.select().from(bills).all()
-      .find(b => b.name.toLowerCase() === c.name.toLowerCase());
-    if (!exists) {
-      db.insert(bills).values({
-        id: randomUUID(),
-        name: c.name,
-        amount: c.amount,
-        dueDay: c.dueDay,
-        category: 'Outros',
-        source: 'auto',
-        isPaid: 0,
-        needsReview: 1,
-        createdAt: now,
-      }).run();
-    }
+    db.insert(bills).values({
+      id: randomUUID(),
+      name: c.name,
+      amount: c.amount,
+      dueDay: c.dueDay,
+      category: 'Outros',
+      source: 'auto',
+      isPaid: 0,
+      needsReview: 1,
+      createdAt: now,
+    }).run();
   }
 
   db.insert(syncLog).values({
