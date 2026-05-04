@@ -15,20 +15,26 @@ export interface BillCandidate {
 }
 
 const KEYWORDS: Record<string, { name: string; category: string }> = {
-  netflix:        { name: 'Netflix',        category: 'Streaming' },
-  spotify:        { name: 'Spotify',        category: 'Streaming' },
-  'disney+':      { name: 'Disney+',        category: 'Streaming' },
-  'disney plus':  { name: 'Disney+',        category: 'Streaming' },
-  chatgpt:        { name: 'ChatGPT Plus',   category: 'IA' },
-  openai:         { name: 'ChatGPT Plus',   category: 'IA' },
-  cursor:         { name: 'Cursor Pro',     category: 'IA' },
-  anthropic:      { name: 'Claude',         category: 'IA' },
-  icloud:         { name: 'iCloud',         category: 'Outros' },
-  'apple storage':{ name: 'iCloud',         category: 'Outros' },
-  notion:         { name: 'Notion',         category: 'Outros' },
-  github:         { name: 'GitHub',         category: 'Outros' },
-  'amazon prime': { name: 'Amazon Prime',   category: 'Streaming' },
-  'youtube premium': { name: 'YouTube Premium', category: 'Streaming' },
+  netflix:           { name: 'Netflix',          category: 'Streaming' },
+  spotify:           { name: 'Spotify',          category: 'Streaming' },
+  'disney+':         { name: 'Disney+',          category: 'Streaming' },
+  'disney plus':     { name: 'Disney+',          category: 'Streaming' },
+  chatgpt:           { name: 'ChatGPT Plus',     category: 'IA' },
+  openai:            { name: 'ChatGPT Plus',     category: 'IA' },
+  cursor:            { name: 'Cursor Pro',       category: 'IA' },
+  anthropic:         { name: 'Claude',           category: 'IA' },
+  'claude.ai':       { name: 'Claude',           category: 'IA' },
+  'claude subscr':   { name: 'Claude',           category: 'IA' },
+  icloud:            { name: 'iCloud',           category: 'Outros' },
+  'apple storage':   { name: 'iCloud',           category: 'Outros' },
+  'apple.com/bill':  { name: 'iCloud',           category: 'Outros' },
+  notion:            { name: 'Notion',           category: 'Outros' },
+  github:            { name: 'GitHub',           category: 'Outros' },
+  'amazon prime':    { name: 'Amazon Prime',     category: 'Streaming' },
+  'youtube premium': { name: 'YouTube Premium',  category: 'Streaming' },
+  'microsoft 365':   { name: 'Microsoft 365',    category: 'Outros' },
+  'microsoft office':{ name: 'Microsoft 365',    category: 'Outros' },
+  linkedin:          { name: 'LinkedIn Premium', category: 'Outros' },
 };
 
 export function findSubscriptionCandidates(txs: Transaction[]): SubscriptionCandidate[] {
@@ -55,8 +61,16 @@ export function findSubscriptionCandidates(txs: Transaction[]): SubscriptionCand
   return candidates;
 }
 
+const KEYWORD_SET = Object.keys(KEYWORDS);
+
+function matchesSubscriptionKeyword(description: string): boolean {
+  const lower = description.toLowerCase();
+  return KEYWORD_SET.some(k => lower.includes(k));
+}
+
 export function findBillCandidates(txs: Transaction[]): BillCandidate[] {
-  const debits = txs.filter(t => t.amount < 0);
+  // Skip subscription-keyword descriptions — handled by findSubscriptionCandidates
+  const debits = txs.filter(t => t.amount < 0 && !matchesSubscriptionKeyword(t.description));
   const groups = new Map<string, Transaction[]>();
 
   for (const tx of debits) {

@@ -139,8 +139,12 @@ export async function syncPluggy(): Promise<SyncResult> {
 
   // Auto-detection pass
   const allTxs = db.select().from(transactions).all();
+  const allAccts = db.select().from(accounts).all();
+  const checkingIds = new Set(allAccts.filter(a => a.type === 'checking').map(a => a.id));
 
-  const subCandidates = findSubscriptionCandidates(allTxs);
+  // Subscriptions: detected from all non-transfer debits (credit card charges are the source)
+  const nonTransferTxs = allTxs.filter(t => t.type !== 'transfer');
+  const subCandidates = findSubscriptionCandidates(nonTransferTxs);
   for (const c of subCandidates) {
     const exists = db.select().from(subscriptions).all()
       .find(s => s.name.toLowerCase() === c.name.toLowerCase());
@@ -159,7 +163,9 @@ export async function syncPluggy(): Promise<SyncResult> {
     }
   }
 
-  const billCandidates = findBillCandidates(allTxs);
+  // Bills: only checking account debits — credit card transactions are not "contas a pagar"
+  const checkingTxs = nonTransferTxs.filter(t => checkingIds.has(t.accountId));
+  const billCandidates = findBillCandidates(checkingTxs);
   for (const c of billCandidates) {
     const exists = db.select().from(bills).all()
       .find(b => b.name.toLowerCase() === c.name.toLowerCase());
