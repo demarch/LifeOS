@@ -1,0 +1,7 @@
+node_modules/
+.next/
+lifeos.db
+.env.local
+design-bundle/
+.superpowers/
+.worktrees/
