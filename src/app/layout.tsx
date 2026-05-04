@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
+import { Sidebar } from '@/components/shell/sidebar';
+import { Topbar } from '@/components/shell/topbar';
+import { SettingsProvider } from '@/lib/settings';
 import './globals.css';
 
-export const metadata: Metadata = {
-  title: 'Life OS',
-};
+export const metadata: Metadata = { title: 'Life OS' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,7 +18,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body data-density="cozy" data-privacy="off">
-        {children}
+        <SettingsProvider>
+          <div className="app">
+            <Sidebar />
+            <div className="main">
+              <Topbar />
+              <div className="content">
+                {children}
+              </div>
+            </div>
+          </div>
+        </SettingsProvider>
       </body>
     </html>
   );
