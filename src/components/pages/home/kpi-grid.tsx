@@ -18,6 +18,9 @@ export function KpiGrid({ accounts, bills, transactions }: KpiGridProps) {
   const totalBalance = accounts
     .filter(a => a.type === 'checking')
     .reduce((s, a) => s + a.balance, 0);
+  const investedBalance = accounts
+    .filter(a => a.type === 'investment')
+    .reduce((s, a) => s + a.balance, 0);
 
   const month = new Date().toISOString().slice(0, 7);
   const monthOut = transactions
@@ -42,10 +45,12 @@ export function KpiGrid({ accounts, bills, transactions }: KpiGridProps) {
         </div>
         <div className="num mask">{fmt(totalBalance)}</div>
         <div className="delta" style={{ color: 'var(--text-2)', fontSize: 11.5 }}>
-          {accounts.length} contas conectadas
+          {investedBalance > 0
+            ? <span className="mask">+ {fmt(investedBalance)} investido</span>
+            : `${accounts.filter(a => a.type === 'checking').length} conta(s) corrente`}
         </div>
         <div className="footer">
-          <span>{accounts.length} contas</span>
+          <span>{accounts.filter(a => a.type !== 'investment').length} contas</span>
           <Icon name="chevron" size={12} color="var(--text-3)" />
         </div>
       </div>

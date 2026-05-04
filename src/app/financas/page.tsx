@@ -11,6 +11,9 @@ export default function FinancasPage() {
   const totalBalance = allAccounts
     .filter(a => a.type === 'checking')
     .reduce((s, a) => s + a.balance, 0);
+  const investedBalance = allAccounts
+    .filter(a => a.type === 'investment')
+    .reduce((s, a) => s + a.balance, 0);
 
   return (
     <>
@@ -19,11 +22,11 @@ export default function FinancasPage() {
           <h1>Finanças</h1>
           <div className="sub">Contas e movimentações</div>
         </div>
-        <div className="right">
+        <div className="right" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
           <span className="num mask" style={{ fontSize: 22, fontWeight: 700 }}>
             {fmt(totalBalance)}
           </span>
-          <span className="sub" style={{ marginLeft: 8 }}>saldo total</span>
+          <span className="sub">saldo disponível{investedBalance > 0 && <span className="mask"> · {fmt(investedBalance)} investido</span>}</span>
         </div>
       </div>
 

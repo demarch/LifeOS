@@ -61,7 +61,10 @@ export async function syncPluggy(): Promise<SyncResult> {
         if (INVOICE_ACCOUNT_RE.test(pa.name)) continue;
 
         const bank = extractBankName(pa.name);
-        const type = pa.type === 'CREDIT' ? 'credit' : 'checking';
+        const paType = (pa as any).type as string;
+        const type = paType === 'CREDIT' ? 'credit'
+          : paType === 'INVESTMENT' ? 'investment'
+          : 'checking';
         // last4 is only meaningful for credit cards (pa.number = "5217")
         // checking account numbers (e.g. "00042779-3") are not card numbers
         const last4 = type === 'credit'
@@ -92,6 +95,9 @@ export async function syncPluggy(): Promise<SyncResult> {
           }).run();
         }
         accountsSynced++;
+
+        // Investment accounts don't have transactional data relevant to cash flow
+        if (type === 'investment') continue;
 
         const acct = db.select().from(accounts)
           .where(eq(accounts.pluggyId, pa.id)).get()!;

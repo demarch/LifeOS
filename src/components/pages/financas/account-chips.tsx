@@ -14,7 +14,8 @@ export function AccountChips({ accounts }: AccountChipsProps) {
           <div className="meta">
             <div className="name">{a.bank} · {a.name}</div>
             <div className="info">
-              {a.last4 ? `•••• ${a.last4}` : '—'} · {a.type === 'credit' ? 'crédito' : 'corrente'}
+              {a.last4 ? `•••• ${a.last4}` : '—'} ·{' '}
+              {a.type === 'credit' ? 'crédito' : a.type === 'investment' ? 'investimento' : 'corrente'}
             </div>
           </div>
           <div
