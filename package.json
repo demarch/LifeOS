@@ -11,7 +11,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@libsql/client": "^0.17.3",
+    "better-sqlite3": "^12.9.0",
     "drizzle-orm": "^0.31.4",
     "next": "14.2.5",
     "pluggy-sdk": "^0.85.2",
@@ -19,15 +19,12 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.11",
+    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "drizzle-kit": "^0.22.8",
     "typescript": "^5",
     "vitest": "^1.6.0"
-  },
-  "optionalDependencies": {
-    "better-sqlite3": "*"
   }
 }
