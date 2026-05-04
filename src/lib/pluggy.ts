@@ -3,7 +3,7 @@ import { db } from '@/db/client';
 import { accounts, transactions, bills, subscriptions, syncLog } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
-import { bankColor } from './bank-colors';
+import { bankColor, extractBankName } from './bank-colors';
 import { findBillCandidates, findSubscriptionCandidates } from './auto-detect';
 
 // Credit card invoice accounts returned by Pluggy — not real accounts
@@ -60,9 +60,13 @@ export async function syncPluggy(): Promise<SyncResult> {
         // Skip invoice sub-accounts (faturas abertas/fechadas returned as separate accounts)
         if (INVOICE_ACCOUNT_RE.test(pa.name)) continue;
 
-        const bank = (pa as any).institutionNumber ?? pa.name.split(' ')[0];
+        const bank = extractBankName(pa.name);
         const type = pa.type === 'CREDIT' ? 'credit' : 'checking';
-        const last4 = (pa.number ?? '').slice(-4);
+        // last4 is only meaningful for credit cards (pa.number = "5217")
+        // checking account numbers (e.g. "00042779-3") are not card numbers
+        const last4 = type === 'credit'
+          ? ((pa.number ?? '').replace(/\D/g, '').slice(-4) || null)
+          : null;
         const color = bankColor(bank);
 
         const existing = db.select().from(accounts)
