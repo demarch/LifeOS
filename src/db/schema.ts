@@ -5,7 +5,7 @@ export const accounts = sqliteTable('accounts', {
   pluggyId:   text('pluggy_id').unique(),
   name:       text('name').notNull(),
   bank:       text('bank').notNull(),
-  type:       text('type').notNull(),           // 'checking' | 'credit'
+  type:       text('type').notNull(),
   balance:    real('balance').notNull().default(0),
   color:      text('color').notNull(),
   last4:      text('last4'),
@@ -18,20 +18,20 @@ export const transactions = sqliteTable('transactions', {
   pluggyId:    text('pluggy_id').unique(),
   accountId:   text('account_id').notNull().references(() => accounts.id),
   description: text('description').notNull(),
-  amount:      real('amount').notNull(),         // negative = debit
-  type:        text('type').notNull(),           // 'debit' | 'credit'
+  amount:      real('amount').notNull(),
+  type:        text('type').notNull(),
   category:    text('category').notNull().default(''),
-  date:        text('date').notNull(),           // YYYY-MM-DD
+  date:        text('date').notNull(),
   createdAt:   integer('created_at').notNull(),
 });
 
 export const bills = sqliteTable('bills', {
   id:          text('id').primaryKey(),
   name:        text('name').notNull(),
-  amount:      real('amount'),                   // nullable — auto-detected may be unknown
-  dueDay:      integer('due_day').notNull(),     // 1-31
+  amount:      real('amount'),
+  dueDay:      integer('due_day').notNull(),
   category:    text('category').notNull(),
-  source:      text('source').notNull().default('manual'), // 'manual' | 'auto'
+  source:      text('source').notNull().default('manual'),
   isPaid:      integer('is_paid').notNull().default(0),
   paidAt:      integer('paid_at'),
   needsReview: integer('needs_review').notNull().default(0),
@@ -43,35 +43,63 @@ export const subscriptions = sqliteTable('subscriptions', {
   name:       text('name').notNull(),
   amount:     real('amount').notNull(),
   billingDay: integer('billing_day').notNull(),
-  category:   text('category').notNull(),       // 'Streaming' | 'IA' | 'Outros'
+  category:   text('category').notNull(),
   source:     text('source').notNull().default('manual'),
   alertDays:  integer('alert_days').notNull().default(3),
   isActive:   integer('is_active').notNull().default(1),
   createdAt:  integer('created_at').notNull(),
 });
 
+export const baseListItems = sqliteTable('base_list_items', {
+  id:         text('id').primaryKey(),
+  name:       text('name').notNull(),
+  category:   text('category').notNull(),
+  defaultQty: integer('default_qty').notNull().default(1),
+  createdAt:  integer('created_at').notNull(),
+});
+
 export const shoppingItems = sqliteTable('shopping_items', {
-  id:          text('id').primaryKey(),
-  name:        text('name').notNull(),
-  category:    text('category').notNull(),
-  isRecurring: integer('is_recurring').notNull().default(0),
-  isChecked:   integer('is_checked').notNull().default(0),
-  createdAt:   integer('created_at').notNull(),
+  id:             text('id').primaryKey(),
+  name:           text('name').notNull(),
+  category:       text('category').notNull(),
+  qty:            integer('qty').notNull().default(1),
+  isRecurring:    integer('is_recurring').notNull().default(0),
+  isChecked:      integer('is_checked').notNull().default(0),
+  baseListItemId: text('base_list_item_id').references(() => baseListItems.id),
+  createdAt:      integer('created_at').notNull(),
+});
+
+export const shoppingSessions = sqliteTable('shopping_sessions', {
+  id:           text('id').primaryKey(),
+  completedAt:  integer('completed_at').notNull(),
+  totalItems:   integer('total_items').notNull(),
+  totalChecked: integer('total_checked').notNull(),
+});
+
+export const shoppingSessionItems = sqliteTable('shopping_session_items', {
+  id:             text('id').primaryKey(),
+  sessionId:      text('session_id').notNull().references(() => shoppingSessions.id),
+  name:           text('name').notNull(),
+  category:       text('category').notNull(),
+  qty:            integer('qty').notNull().default(1),
+  baseListItemId: text('base_list_item_id').references(() => baseListItems.id),
 });
 
 export const syncLog = sqliteTable('sync_log', {
   id:                  text('id').primaryKey(),
-  status:              text('status').notNull(),  // 'ok' | 'error'
+  status:              text('status').notNull(),
   accountsSynced:      integer('accounts_synced').notNull().default(0),
   transactionsSynced:  integer('transactions_synced').notNull().default(0),
   errorMsg:            text('error_msg'),
   syncedAt:            integer('synced_at').notNull(),
 });
 
-// Inferred types for use throughout the app
-export type Account      = typeof accounts.$inferSelect;
-export type Transaction  = typeof transactions.$inferSelect;
-export type Bill         = typeof bills.$inferSelect;
-export type Subscription = typeof subscriptions.$inferSelect;
-export type ShoppingItem = typeof shoppingItems.$inferSelect;
-export type SyncLogEntry = typeof syncLog.$inferSelect;
+export type Account           = typeof accounts.$inferSelect;
+export type Transaction       = typeof transactions.$inferSelect;
+export type Bill              = typeof bills.$inferSelect;
+export type Subscription      = typeof subscriptions.$inferSelect;
+export type BaseListItem      = typeof baseListItems.$inferSelect;
+export type ShoppingItem      = typeof shoppingItems.$inferSelect;
+export type ShoppingSession   = typeof shoppingSessions.$inferSelect;
+export type ShoppingSessionItem = typeof shoppingSessionItems.$inferSelect;
+export type SyncLogEntry      = typeof syncLog.$inferSelect;

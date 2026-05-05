@@ -1,31 +1,19 @@
 import { db } from '@/db/client';
 import { shoppingItems } from '@/db/schema';
 import { asc } from 'drizzle-orm';
-import { ShoppingList } from '@/components/pages/lista/shopping-list';
-import { Icon } from '@/components/atoms/icon';
+import { ListaShell } from '@/components/pages/lista/lista-header';
 
 export default function ListaPage() {
   const allItems = db.select().from(shoppingItems).orderBy(asc(shoppingItems.category)).all();
   const done = allItems.filter(i => i.isChecked).length;
+  const recurring = allItems.filter(i => i.isRecurring).length;
 
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1>Lista de compras</h1>
-          <div className="sub">
-            {done}/{allItems.length} concluídos ·{' '}
-            {allItems.filter(i => i.isRecurring).length} recorrentes
-          </div>
-        </div>
-        <div className="right">
-          <button className="btn ghost">
-            <Icon name="trash" size={14} /> Limpar marcados
-          </button>
-        </div>
-      </div>
-
-      <ShoppingList initialItems={allItems} />
-    </>
+    <ListaShell
+      initialItems={allItems}
+      done={done}
+      total={allItems.length}
+      recurring={recurring}
+    />
   );
 }
