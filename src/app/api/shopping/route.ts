@@ -18,8 +18,10 @@ export async function POST(request: Request) {
     id,
     name: body.name,
     category: body.category ?? 'Outros',
+    qty: Math.max(1, Number(body.qty ?? 1)),
     isRecurring: body.isRecurring ? 1 : 0,
     isChecked: 0,
+    baseListItemId: body.baseListItemId ?? null,
     createdAt: now,
   }).run();
 
