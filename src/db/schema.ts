@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const accounts = sqliteTable('accounts', {
   id:         text('id').primaryKey(),
@@ -94,6 +94,32 @@ export const syncLog = sqliteTable('sync_log', {
   syncedAt:            integer('synced_at').notNull(),
 });
 
+export const cashFlowMonths = sqliteTable('cash_flow_months', {
+  id:             text('id').primaryKey(),
+  key:            text('key').notNull().unique(),
+  name:           text('name').notNull(),
+  openingBalance: real('opening_balance').notNull().default(0),
+  inheritOpening: integer('inherit_opening').notNull().default(1),
+  createdAt:      integer('created_at').notNull(),
+  updatedAt:      integer('updated_at').notNull(),
+});
+
+export const cashFlowEntries = sqliteTable('cash_flow_entries', {
+  id:          text('id').primaryKey(),
+  monthId:     text('month_id').notNull().references(() => cashFlowMonths.id, { onDelete: 'cascade' }),
+  day:         integer('day').notNull(),
+  date:        text('date').notNull(),
+  description: text('description').notNull().default(''),
+  note:        text('note'),
+  entrada:     real('entrada').notNull().default(0),
+  saida:       real('saida').notNull().default(0),
+  source:      text('source').notNull().default('manual'),
+  sourceRefId: text('source_ref_id'),
+  createdAt:   integer('created_at').notNull(),
+}, t => ({
+  uniqSrc: uniqueIndex('cash_flow_entries_src_uniq').on(t.monthId, t.source, t.sourceRefId),
+}));
+
 export type Account           = typeof accounts.$inferSelect;
 export type Transaction       = typeof transactions.$inferSelect;
 export type Bill              = typeof bills.$inferSelect;
@@ -103,3 +129,5 @@ export type ShoppingItem      = typeof shoppingItems.$inferSelect;
 export type ShoppingSession   = typeof shoppingSessions.$inferSelect;
 export type ShoppingSessionItem = typeof shoppingSessionItems.$inferSelect;
 export type SyncLogEntry      = typeof syncLog.$inferSelect;
+export type CashFlowMonth     = typeof cashFlowMonths.$inferSelect;
+export type CashFlowEntry     = typeof cashFlowEntries.$inferSelect;
