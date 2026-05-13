@@ -71,6 +71,7 @@ src/components/shell/sidebar.tsx      # + nav item "Investimentos"
 - `pluggy-invest.ts` is the single bridge to `pluggy-sdk` for investment data. The existing `lib/pluggy.ts` (cash-flow sync) is left untouched.
 - API routes are thin: validate input, call lib, return JSON. No business logic.
 - UI components consume server-rendered data; only refresh and chart components are client.
+- The `positions.account_id` FK is an optional pointer used only for future grouping queries; the invest module does not write to or otherwise depend on the `accounts` table. "Decoupled" here means no shared writes and no behavioural coupling — not absence of a reference column.
 
 ### Pattern alignment
 
@@ -408,7 +409,7 @@ HG_BRASIL_KEY=...              # NEW: free key from https://hgbrasil.com/status/
 
 ## 9. Out-of-scope Risks (acknowledged)
 
-- **Pluggy broker connector availability:** if the user's broker has no Pluggy connector, no positions will sync. Mitigation: manual entry remains feasible (the `pluggy_id` column is nullable), but UI for manual entry is not in MVP1.
+- **Pluggy broker connector availability:** if the user's broker has no Pluggy connector, MVP1 cannot populate positions. The schema (`pluggy_id` nullable) leaves room for manual entry, but no manual-entry UI is included in MVP1. If this blocks the user, scope a small manual-entry form as a follow-on before sub-project #2.
 - **HG ticker coverage gaps:** rare tickers may be absent from HG. Mitigation: row badge + last cached value; user can investigate manually.
 - **Free HG endpoint shape changes:** breaking change in HG response would require updating `hg-client.ts` parser only.
 
