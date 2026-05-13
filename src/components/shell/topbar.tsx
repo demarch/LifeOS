@@ -7,6 +7,7 @@ import { useSettings } from '@/lib/settings';
 const TITLES: Record<string, string> = {
   '/':             'Início',
   '/financas':     'Finanças',
+  '/fluxo':        'Fluxo de Caixa',
   '/contas':       'Contas a pagar',
   '/assinaturas':  'Assinaturas',
   '/lista':        'Lista',

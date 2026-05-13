@@ -28,6 +28,8 @@ export function Icon({ name, size = 16, color = 'currentColor' }: IconProps) {
     trash:     <><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" {...s} /></>,
     bot:       <><rect x="4" y="8" width="16" height="11" rx="2" {...s} /><path d="M12 4v4M9 13h.01M15 13h.01M9 16h6" {...s} /></>,
     download:  <><path d="M12 4v12M6 12l6 6 6-6M4 20h16" {...s} /></>,
+    trending:  <><path d="M3 17l6-6 4 4 8-8" {...s} /><path d="M14 7h7v7" {...s} /></>,
+    close:     <><path d="M6 6l12 12M18 6L6 18" {...s} /></>,
   };
 
   return (

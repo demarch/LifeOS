@@ -694,6 +694,42 @@ body[data-privacy="on"] .kpi:hover .mask { filter: blur(0); }
   display: inline-block;
 }
 
+/* ── Home: 30-day cash-flow forecast strip ── */
+.forecast-strip {
+  display: flex; gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+.forecast-strip::-webkit-scrollbar { height: 6px; }
+.forecast-strip::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; }
+.forecast-strip::-webkit-scrollbar-track { background: transparent; }
+.forecast-cell {
+  flex: 0 0 44px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-2);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  min-height: 62px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.forecast-cell:hover { border-color: var(--line-2); background: var(--bg-3); }
+.forecast-cell:active { transform: translateY(1px); }
+.forecast-cell .dow { color: var(--text-3); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; }
+.forecast-cell .dn  { color: var(--text-0); font-size: 13px; font-weight: 600; }
+.forecast-cell.today { border-color: var(--accent); background: var(--accent-soft); }
+.forecast-cell.today .dn { color: var(--accent); }
+.forecast-cell .pips { display: flex; gap: 3px; min-height: 6px; align-items: center; }
+.forecast-cell .pips .pip { width: 5px; height: 5px; border-radius: 999px; display: inline-block; }
+.forecast-cell .pip-good { background: var(--good); }
+.forecast-cell .pip-bad  { background: var(--danger); }
+
 /* ── Shopping List: quantity controls ── */
 .qty-ctrl {
   display: inline-flex; align-items: center; gap: 6px;
@@ -805,3 +841,135 @@ body[data-privacy="on"] .kpi:hover .mask { filter: blur(0); }
   padding: 2px 10px;
 }
 .freq-item .freq-last { font-size: 11px; color: var(--text-3); }
+
+/* ── Fluxo de Caixa ── */
+.fluxo-tabs {
+  display: flex; gap: 2px; overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  padding: 0 16px;
+  scrollbar-width: thin;
+}
+.fluxo-tab {
+  padding: 10px 14px;
+  font-size: 13px; color: var(--text-2);
+  background: transparent; border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: color 0.12s, border-color 0.12s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.fluxo-tab:hover { color: var(--text-0); }
+.fluxo-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.fluxo-tab .badge {
+  font-family: var(--font-mono); font-size: 10.5px;
+  background: var(--bg-3); padding: 1px 6px; border-radius: 999px;
+  color: var(--text-2); border: 1px solid var(--line);
+}
+
+.fluxo-charts {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin-bottom: 16px;
+}
+@media (max-width: 1100px) { .fluxo-charts { grid-template-columns: 1fr; } }
+.fluxo-chart-card { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+.fluxo-chart-card h3 { font-size: 12.5px; font-weight: 500; color: var(--text-2); letter-spacing: 0.02em; text-transform: uppercase; margin: 0 0 10px; }
+.fluxo-chart-card .canvas-wrap { height: 220px; position: relative; }
+
+.fluxo-tbl {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px; font-family: var(--font-mono);
+}
+.fluxo-tbl thead th {
+  text-align: left; font-weight: 500; color: var(--text-3);
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 9px 10px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 2;
+}
+.fluxo-tbl tbody td {
+  padding: 0; border-bottom: 1px solid var(--line);
+  color: var(--text-1);
+}
+.fluxo-tbl tbody tr:hover { background: var(--bg-2); }
+.fluxo-tbl tbody tr.weekend { background: color-mix(in oklch, var(--bg-2) 50%, transparent); }
+.fluxo-tbl input,
+.fluxo-tbl .cell-static {
+  width: 100%; height: 100%; box-sizing: border-box;
+  background: transparent; border: 0; outline: 0;
+  color: inherit; font: inherit;
+  padding: 9px 10px;
+  text-align: right;
+}
+.fluxo-tbl .cell-static { text-align: left; }
+.fluxo-tbl input:focus { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.fluxo-tbl .col-day,
+.fluxo-tbl .col-day input,
+.fluxo-tbl .col-day .cell-static { text-align: center; }
+.fluxo-tbl .col-desc input,
+.fluxo-tbl .col-desc .cell-static { text-align: left; }
+.fluxo-tbl .col-sticky {
+  position: sticky; left: 0; z-index: 1;
+  background: var(--bg-1);
+  border-right: 1px solid var(--line);
+}
+.fluxo-tbl tbody tr:hover .col-sticky { background: var(--bg-2); }
+.fluxo-tbl .cell-amt.positive { color: var(--good); }
+.fluxo-tbl .cell-amt.negative { color: var(--danger); }
+.fluxo-tbl .cell-amt.neutral  { color: var(--text-2); }
+.fluxo-tbl .col-actions { width: 32px; text-align: center; }
+.fluxo-tbl .col-actions button {
+  background: transparent; border: 0; color: var(--text-3);
+  cursor: pointer; padding: 4px; border-radius: 4px;
+}
+.fluxo-tbl .col-actions button:hover { color: var(--danger); background: color-mix(in oklch, var(--danger) 10%, transparent); }
+
+.fluxo-summary {
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+@media (max-width: 1100px) { .fluxo-summary { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px)  { .fluxo-summary { grid-template-columns: repeat(2, 1fr); } }
+.fluxo-summary .item { display: flex; flex-direction: column; gap: 4px; }
+.fluxo-summary .item .lbl { font-size: 10.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; }
+.fluxo-summary .item .val { font-family: var(--font-mono); font-size: 16px; font-weight: 600; color: var(--text-0); }
+.fluxo-summary .item .val.positive { color: var(--good); }
+.fluxo-summary .item .val.negative { color: var(--danger); }
+.fluxo-summary .item .val.warn { color: var(--warn); }
+
+.fluxo-modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid; place-items: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+.fluxo-modal {
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  padding: 22px 26px;
+  width: 380px;
+  box-shadow: var(--shadow);
+}
+.fluxo-modal h3 { margin: 0 0 14px; font-size: 15px; }
+.fluxo-modal .row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.fluxo-modal .row label { font-size: 11px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.fluxo-modal .row input[type="month"],
+.fluxo-modal .row input[type="number"] {
+  background: var(--bg-2); border: 1px solid var(--line);
+  color: var(--text-0); padding: 8px 10px;
+  border-radius: var(--radius-sm); font: inherit; font-size: 13px;
+  font-family: var(--font-mono);
+}
+.fluxo-modal .row input:focus { outline: 0; border-color: var(--accent); }
+.fluxo-modal .check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-1); margin-bottom: 10px; cursor: pointer; }
+.fluxo-modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }

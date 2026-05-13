@@ -12,10 +12,12 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
+    "chart.js": "^4.5.1",
     "drizzle-orm": "^0.31.4",
     "next": "14.2.5",
     "pluggy-sdk": "^0.85.2",
     "react": "^18.3.1",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {

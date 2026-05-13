@@ -104,13 +104,14 @@ export function planVsReal(entries: ComputedEntry[], real: Transaction[]): PlanV
     realByDate.set(t.date, (realByDate.get(t.date) ?? 0) + Math.abs(t.amount));
   }
 
-  const dates = new Set<string>([...plannedByDate.keys(), ...realByDate.keys()]);
-  const rows: PlanVsRealRow[] = [];
-  for (const date of dates) {
+  const dates: Record<string, true> = {};
+  plannedByDate.forEach((_, k) => { dates[k] = true; });
+  realByDate.forEach((_, k) => { dates[k] = true; });
+  const rows: PlanVsRealRow[] = Object.keys(dates).map(date => {
     const planned = plannedByDate.get(date) ?? 0;
     const realV   = realByDate.get(date) ?? 0;
-    rows.push({ date, planned, real: realV, delta: planned - realV });
-  }
+    return { date, planned, real: realV, delta: planned - realV };
+  });
   return rows.sort((a, b) => a.date.localeCompare(b.date));
 }
 
