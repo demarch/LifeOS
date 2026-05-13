@@ -4,12 +4,13 @@ import { usePathname } from 'next/navigation';
 import { Icon } from '@/components/atoms/icon';
 
 const NAV = [
-  { href: '/',             label: 'Início',       icon: 'home'     },
-  { href: '/financas',     label: 'Finanças',     icon: 'wallet'   },
-  { href: '/fluxo',        label: 'Fluxo',        icon: 'trending' },
-  { href: '/contas',       label: 'Contas',       icon: 'calendar' },
-  { href: '/assinaturas',  label: 'Assinaturas',  icon: 'repeat'   },
-  { href: '/lista',        label: 'Lista',        icon: 'cart'     },
+  { href: '/',             label: 'Início',         icon: 'home'     },
+  { href: '/financas',     label: 'Finanças',       icon: 'wallet'   },
+  { href: '/fluxo',        label: 'Fluxo',          icon: 'trending' },
+  { href: '/invest',       label: 'Investimentos',  icon: 'trending' },
+  { href: '/contas',       label: 'Contas',         icon: 'calendar' },
+  { href: '/assinaturas',  label: 'Assinaturas',    icon: 'repeat'   },
+  { href: '/lista',        label: 'Lista',          icon: 'cart'     },
 ];
 
 interface SidebarProps {
