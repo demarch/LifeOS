@@ -1,0 +1,28 @@
+[
+  {
+    "id": "pluggy-pos-1",
+    "code": "PETR4",
+    "name": "Petrobras PN",
+    "type": "EQUITY",
+    "subtype": null,
+    "quantity": 100,
+    "amount": 3000,
+    "balance": 3840,
+    "amountWithdrawal": 3840,
+    "status": "ACTIVE",
+    "issuer": "B3"
+  },
+  {
+    "id": "pluggy-pos-2",
+    "code": "HGLG11",
+    "name": "CSHG Logística",
+    "type": "EQUITY",
+    "subtype": "FII",
+    "quantity": 50,
+    "amount": 8025,
+    "balance": 8615,
+    "amountWithdrawal": 8615,
+    "status": "ACTIVE",
+    "issuer": "B3"
+  }
+]
