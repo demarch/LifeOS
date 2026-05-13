@@ -1,0 +1,15 @@
+{
+  "by": "default",
+  "valid_key": true,
+  "results": {
+    "PETR4": {
+      "name": "Petrobras PN",
+      "symbol": "PETR4",
+      "region": "BR",
+      "currency": "BRL",
+      "price": 38.4,
+      "change_percent": 1.23,
+      "updated_at": "2026-05-13 14:30:00"
+    }
+  }
+}
