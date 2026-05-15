@@ -31,6 +31,7 @@ const mkEntry = (over: Partial<CashFlowEntry> = {}): CashFlowEntry => ({
   saida: 0,
   source: 'manual',
   sourceRefId: null,
+  categoryId: null,
   createdAt: 0,
   ...over,
 });

@@ -33,6 +33,7 @@ export async function POST(_request: Request, ctx: Ctx): Promise<Response> {
       saida: r.saida,
       source: r.source,
       sourceRefId: r.sourceRefId,
+      categoryId: r.categoryId,
       createdAt: now,
     };
     const result = db.insert(cashFlowEntries).values(row).onConflictDoNothing().run();

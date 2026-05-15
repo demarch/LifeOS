@@ -70,6 +70,7 @@ export function autoSeedPlan(monthKey: string, src: SeedSource): SeedRow[] {
       saida: s.amount,
       source: 'subscription',
       sourceRefId: s.id,
+      categoryId: null,
     });
   }
 
@@ -85,6 +86,7 @@ export function autoSeedPlan(monthKey: string, src: SeedSource): SeedRow[] {
       saida: b.amount,
       source: 'bill',
       sourceRefId: b.id,
+      categoryId: null,
     });
   }
 
