@@ -14,7 +14,7 @@ export interface BillCandidate {
   needsReview: 1;
 }
 
-const KEYWORDS: Record<string, { name: string; category: string }> = {
+export const KEYWORDS: Record<string, { name: string; category: string }> = {
   netflix:           { name: 'Netflix',          category: 'Streaming' },
   spotify:           { name: 'Spotify',          category: 'Streaming' },
   'disney+':         { name: 'Disney+',          category: 'Streaming' },

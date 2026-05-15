@@ -1,5 +1,6 @@
 import { sqlite } from '@/db/client';
 import type { BudgetCategory } from '@/db/schema';
+import { KEYWORDS } from '@/lib/auto-detect';
 
 /**
  * Curated taxonomy. IDs are stable, human-readable slugs so seed is idempotent
@@ -69,8 +70,31 @@ export function seedCuratedCategories(deps?: SeedDeps): { inserted: number; skip
   return { inserted, skipped };
 }
 
-export function resolveCategoryId(_raw: string, _categories: BudgetCategory[]): string | null {
-  throw new Error('not implemented yet — Task 5');
+export function resolveCategoryId(raw: string, categories: BudgetCategory[]): string | null {
+  const aliasTable = new Map<string, string>();
+  for (const c of categories) aliasTable.set(normalize(c.name), c.id);
+
+  const direct = aliasTable.get(normalize(raw));
+  if (direct) return direct;
+
+  const lower = raw.toLowerCase();
+  for (const [kw, meta] of Object.entries(KEYWORDS)) {
+    if (lower.includes(kw)) {
+      const bridged = KEYWORD_CATEGORY_MAP[meta.category];
+      if (bridged) {
+        const id = aliasTable.get(normalize(bridged));
+        if (id) return id;
+      }
+    }
+  }
+
+  const directBridge = KEYWORD_CATEGORY_MAP[raw];
+  if (directBridge) {
+    const id = aliasTable.get(normalize(directBridge));
+    if (id) return id;
+  }
+
+  return aliasTable.get(normalize('Outros')) ?? null;
 }
 
 export function bindLegacyCategories(): BindResult {

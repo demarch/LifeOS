@@ -36,6 +36,49 @@ const clearAll = () => {
 beforeAll(async () => { await import('@/db/client'); });
 beforeEach(() => { clearAll(); });
 
+describe('resolveCategoryId', () => {
+  it('Pass 1 — direct curated name hits', async () => {
+    const { seedCuratedCategories, resolveCategoryId } = await import('@/lib/budget-seed');
+    const { db } = await import('@/db/client');
+    const { budgetCategories } = await import('@/db/schema');
+    seedCuratedCategories();
+    const cats = await db.select().from(budgetCategories);
+    expect(resolveCategoryId('Assinaturas', cats)).toBe('cat_assinaturas');
+    expect(resolveCategoryId('MORADIA', cats)).toBe('cat_moradia');
+    expect(resolveCategoryId('saude', cats)).toBe('cat_saude');
+  });
+
+  it('Pass 2 — KEYWORD bridge: Streaming → Assinaturas', async () => {
+    const { seedCuratedCategories, resolveCategoryId } = await import('@/lib/budget-seed');
+    const { db } = await import('@/db/client');
+    const { budgetCategories } = await import('@/db/schema');
+    seedCuratedCategories();
+    const cats = await db.select().from(budgetCategories);
+    expect(resolveCategoryId('Streaming', cats)).toBe('cat_assinaturas');
+    expect(resolveCategoryId('IA', cats)).toBe('cat_assinaturas');
+  });
+
+  it('Pass 2 — KEYWORDS substring match on description-like input', async () => {
+    const { seedCuratedCategories, resolveCategoryId } = await import('@/lib/budget-seed');
+    const { db } = await import('@/db/client');
+    const { budgetCategories } = await import('@/db/schema');
+    seedCuratedCategories();
+    const cats = await db.select().from(budgetCategories);
+    expect(resolveCategoryId('NETFLIX.COM 12/12', cats)).toBe('cat_assinaturas');
+    expect(resolveCategoryId('SPOTIFY BRASIL', cats)).toBe('cat_assinaturas');
+  });
+
+  it('falls back to Outros on unknown input', async () => {
+    const { seedCuratedCategories, resolveCategoryId } = await import('@/lib/budget-seed');
+    const { db } = await import('@/db/client');
+    const { budgetCategories } = await import('@/db/schema');
+    seedCuratedCategories();
+    const cats = await db.select().from(budgetCategories);
+    expect(resolveCategoryId('PADARIA PAO QUENTE', cats)).toBe('cat_outros');
+    expect(resolveCategoryId('', cats)).toBe('cat_outros');
+  });
+});
+
 describe('seedCuratedCategories', () => {
   it('inserts the full curated taxonomy on an empty DB', async () => {
     const { seedCuratedCategories, CURATED_SEED } = await import('@/lib/budget-seed');
