@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
 export const accounts = sqliteTable('accounts', {
   id:         text('id').primaryKey(),
@@ -49,6 +50,30 @@ export const subscriptions = sqliteTable('subscriptions', {
   isActive:   integer('is_active').notNull().default(1),
   createdAt:  integer('created_at').notNull(),
 });
+
+export const budgetCategories = sqliteTable('budget_categories', {
+  id:         text('id').primaryKey(),
+  name:       text('name').notNull(),
+  kind:       text('kind').notNull(),         // 'expense' | 'income'
+  color:      text('color').notNull(),
+  icon:       text('icon').notNull(),
+  carryover:  integer('carryover').notNull().default(0),
+  sortOrder:  integer('sort_order').notNull().default(0),
+  isArchived: integer('is_archived').notNull().default(0),
+  createdAt:  integer('created_at').notNull(),
+}, t => ({
+  nameUnique: uniqueIndex('budget_categories_name_unique').on(sql`${t.name} COLLATE NOCASE`),
+}));
+
+export const budgetLimits = sqliteTable('budget_limits', {
+  id:         text('id').primaryKey(),
+  categoryId: text('category_id').notNull().references(() => budgetCategories.id, { onDelete: 'cascade' }),
+  monthKey:   text('month_key').notNull(),
+  amount:     real('amount').notNull(),
+  createdAt:  integer('created_at').notNull(),
+}, t => ({
+  catMonthUnique: uniqueIndex('budget_limits_cat_month_unique').on(t.categoryId, t.monthKey),
+}));
 
 export const baseListItems = sqliteTable('base_list_items', {
   id:         text('id').primaryKey(),
@@ -115,6 +140,7 @@ export const cashFlowEntries = sqliteTable('cash_flow_entries', {
   saida:       real('saida').notNull().default(0),
   source:      text('source').notNull().default('manual'),
   sourceRefId: text('source_ref_id'),
+  categoryId:  text('category_id').references(() => budgetCategories.id),  // nullable; ON DELETE NO ACTION default
   createdAt:   integer('created_at').notNull(),
 }, t => ({
   uniqSrc: uniqueIndex('cash_flow_entries_src_uniq').on(t.monthId, t.source, t.sourceRefId),
@@ -167,3 +193,5 @@ export type CashFlowEntry     = typeof cashFlowEntries.$inferSelect;
 export type Position          = typeof positions.$inferSelect;
 export type QuoteCacheEntry   = typeof quotesCache.$inferSelect;
 export type PortfolioSnapshot = typeof portfolioSnapshots.$inferSelect;
+export type BudgetCategory = typeof budgetCategories.$inferSelect;
+export type BudgetLimit    = typeof budgetLimits.$inferSelect;
