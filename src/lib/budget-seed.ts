@@ -1,3 +1,4 @@
+import { sqlite } from '@/db/client';
 import type { BudgetCategory } from '@/db/schema';
 
 /**
@@ -50,8 +51,22 @@ export function normalize(s: string): string {
 export type BindResult = { bound: number; unmatched: string[] };
 export type SeedDeps = { now?: () => number };
 
-export function seedCuratedCategories(_deps?: SeedDeps): { inserted: number; skipped: number } {
-  throw new Error('not implemented yet — Task 4');
+export function seedCuratedCategories(deps?: SeedDeps): { inserted: number; skipped: number } {
+  const now = deps?.now?.() ?? Date.now();
+  let inserted = 0;
+  let skipped  = 0;
+  const stmt = sqlite.prepare(
+    `INSERT INTO budget_categories
+       (id, name, kind, color, icon, carryover, sort_order, is_archived, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+     ON CONFLICT(id) DO NOTHING`,
+  );
+  for (const c of CURATED_SEED) {
+    const r = stmt.run(c.id, c.name, c.kind, c.color, c.icon, c.carryover, c.sortOrder, now);
+    if (r.changes === 1) inserted++;
+    else                 skipped++;
+  }
+  return { inserted, skipped };
 }
 
 export function resolveCategoryId(_raw: string, _categories: BudgetCategory[]): string | null {

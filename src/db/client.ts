@@ -5,8 +5,9 @@ import path from 'path';
 
 const DB_PATH = path.join(process.cwd(), 'lifeos.db');
 
-const sqlite = new Database(DB_PATH);
-sqlite.pragma('journal_mode = WAL');
-sqlite.pragma('foreign_keys = ON');
+const sqliteClient = new Database(DB_PATH);
+sqliteClient.pragma('journal_mode = WAL');
+sqliteClient.pragma('foreign_keys = ON');
 
-export const db = drizzle(sqlite, { schema });
+export const sqlite = sqliteClient;
+export const db = drizzle(sqliteClient, { schema });
