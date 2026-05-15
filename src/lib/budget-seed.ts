@@ -98,5 +98,44 @@ export function resolveCategoryId(raw: string, categories: BudgetCategory[]): st
 }
 
 export function bindLegacyCategories(): BindResult {
-  throw new Error('not implemented yet — Task 6');
+  type LegacyRef = { id: string; name: string; category: string };
+  const subs:  LegacyRef[] = sqlite.prepare(`SELECT id, name, category FROM subscriptions`).all() as LegacyRef[];
+  const bills: LegacyRef[] = sqlite.prepare(`SELECT id, name, category FROM bills`).all()         as LegacyRef[];
+
+  const cats = sqlite.prepare(
+    `SELECT id, name, kind, color, icon, carryover, sort_order AS sortOrder,
+            is_archived AS isArchived, created_at AS createdAt
+     FROM budget_categories`,
+  ).all() as BudgetCategory[];
+
+  const outrosId = cats.find(c => normalize(c.name) === 'outros')?.id ?? null;
+  const unmatched: string[] = [];
+
+  const resolveFor = (ref: LegacyRef, kind: 'bill' | 'subscription'): string | null => {
+    const byName = resolveCategoryId(ref.name, cats);
+    if (byName && byName !== outrosId) return byName;
+    const byCat = resolveCategoryId(ref.category, cats);
+    if (byCat && byCat !== outrosId) return byCat;
+    unmatched.push(`${kind}:${ref.id}`);
+    return outrosId;
+  };
+
+  const updateEntry = sqlite.prepare(
+    `UPDATE cash_flow_entries SET category_id = ? WHERE source = ? AND source_ref_id = ?`,
+  );
+
+  let bound = 0;
+  const tx = sqlite.transaction(() => {
+    for (const s of subs) {
+      const catId = resolveFor(s, 'subscription');
+      if (catId) bound += updateEntry.run(catId, 'subscription', s.id).changes;
+    }
+    for (const b of bills) {
+      const catId = resolveFor(b, 'bill');
+      if (catId) bound += updateEntry.run(catId, 'bill', b.id).changes;
+    }
+  });
+  tx();
+
+  return { bound, unmatched };
 }

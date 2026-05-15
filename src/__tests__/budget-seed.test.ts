@@ -79,6 +79,80 @@ describe('resolveCategoryId', () => {
   });
 });
 
+describe('bindLegacyCategories', () => {
+  const insertMonth = () => getSqlite()
+    .prepare(`INSERT INTO cash_flow_months (id,key,name,opening_balance,inherit_opening,created_at,updated_at)
+              VALUES ('m1','2026-05','maio',0,0,0,0)`)
+    .run();
+
+  const insertSub = (id: string, name: string, category: string) => getSqlite()
+    .prepare(`INSERT INTO subscriptions (id,name,amount,billing_day,category,source,alert_days,is_active,created_at)
+              VALUES (?,?,?,?,?,?,?,?,?)`)
+    .run(id, name, 50, 15, category, 'manual', 3, 1, 0);
+
+  const insertBill = (id: string, name: string, category: string) => getSqlite()
+    .prepare(`INSERT INTO bills (id,name,amount,due_day,category,source,is_paid,paid_at,needs_review,created_at)
+              VALUES (?,?,?,?,?,?,?,?,?,?)`)
+    .run(id, name, 1500, 5, category, 'manual', 0, null, 0, 0);
+
+  const insertEntry = (id: string, source: string, sourceRefId: string | null) => getSqlite()
+    .prepare(`INSERT INTO cash_flow_entries
+              (id,month_id,day,date,description,note,entrada,saida,source,source_ref_id,category_id,created_at)
+              VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(id, 'm1', 1, '2026-05-01', '', null, 0, 50, source, sourceRefId, null, 0);
+
+  const getEntryCat = (id: string) =>
+    (getSqlite().prepare('SELECT category_id FROM cash_flow_entries WHERE id = ?').get(id) as { category_id: string | null }).category_id;
+
+  it('binds subscription-linked entries via sourceRefId → sub.name → resolver', async () => {
+    const { seedCuratedCategories, bindLegacyCategories } = await import('@/lib/budget-seed');
+    seedCuratedCategories();
+    insertMonth();
+    insertSub('s_netflix', 'Netflix', 'Streaming');
+    insertEntry('e1', 'subscription', 's_netflix');
+
+    const res = bindLegacyCategories();
+    expect(res.bound).toBe(1);
+    expect(getEntryCat('e1')).toBe('cat_assinaturas');
+  });
+
+  it('falls back to bill.category when name does not resolve', async () => {
+    const { seedCuratedCategories, bindLegacyCategories } = await import('@/lib/budget-seed');
+    seedCuratedCategories();
+    insertMonth();
+    insertBill('b_alug', 'Aluguel apartamento', 'Moradia');
+    insertEntry('e2', 'bill', 'b_alug');
+
+    const res = bindLegacyCategories();
+    expect(res.bound).toBe(1);
+    expect(getEntryCat('e2')).toBe('cat_moradia');
+  });
+
+  it('lands unmatched in Outros and logs them', async () => {
+    const { seedCuratedCategories, bindLegacyCategories } = await import('@/lib/budget-seed');
+    seedCuratedCategories();
+    insertMonth();
+    insertBill('b_x', 'Coisa Qualquer Z', 'Outros');
+    insertEntry('e3', 'bill', 'b_x');
+
+    const res = bindLegacyCategories();
+    expect(res.bound).toBe(1);
+    expect(getEntryCat('e3')).toBe('cat_outros');
+    expect(res.unmatched).toContain('bill:b_x');
+  });
+
+  it('leaves manual entries (no sourceRefId) untouched', async () => {
+    const { seedCuratedCategories, bindLegacyCategories } = await import('@/lib/budget-seed');
+    seedCuratedCategories();
+    insertMonth();
+    insertEntry('e4', 'manual', null);
+
+    const res = bindLegacyCategories();
+    expect(res.bound).toBe(0);
+    expect(getEntryCat('e4')).toBeNull();
+  });
+});
+
 describe('seedCuratedCategories', () => {
   it('inserts the full curated taxonomy on an empty DB', async () => {
     const { seedCuratedCategories, CURATED_SEED } = await import('@/lib/budget-seed');
