@@ -43,10 +43,10 @@ Add category-based monthly budgets that integrate tightly with the existing `/fl
 ```sql
 budget_categories
   id          text PK
-  name        text NOT NULL UNIQUE       -- "Moradia", "Mercado"
-  kind        text NOT NULL              -- 'expense' | 'income'
-  color       text NOT NULL              -- "#a78bfa"
-  icon        text NOT NULL              -- emoji or lucide name
+  name        text NOT NULL UNIQUE COLLATE NOCASE  -- "Moradia", "Mercado"; case-insensitive
+  kind        text NOT NULL                        -- 'expense' | 'income'
+  color       text NOT NULL                        -- "#a78bfa"
+  icon        text NOT NULL                        -- emoji or lucide name
   carryover   integer NOT NULL DEFAULT 0
   sortOrder   integer NOT NULL DEFAULT 0
   isArchived  integer NOT NULL DEFAULT 0
@@ -65,7 +65,7 @@ budget_limits                            -- per-month limit override
 
 ```sql
 cashFlowEntries
-  + categoryId text REFERENCES budget_categories(id)  -- nullable
+  + categoryId text REFERENCES budget_categories(id) ON DELETE NO ACTION  -- nullable; RESTRICT semantics with FKs on
 ```
 
 `transactions.category` (existing free-text) and `bills.category` / `subscriptions.category` stay unchanged. They keep storing free-text strings; mapping to `budget_categories` happens at read time via `resolveCategoryId()`. No FK is added to those legacy fields because their free-text values must keep working when a referenced `budget_category` is renamed or archived.
@@ -87,20 +87,60 @@ scripts/migrate-budgets.ts     # one-shot migration runner
 
 ### 4.3 Compute pipeline (per category, per month)
 
+Pure function over explicit inputs: `{categories, limits, entries, transactions, prevMonth?, today?}`. No DB reads inside compute — SSR layer loads the data.
+
+**Common (both kinds)**
+
 ```
-limit         = budget_limits[catId][monthKey]
-                ?? lastKnown(catId)             -- most recent budget_limits row
-                                                 -- for catId with monthKey < currentMonthKey
-                ?? 0
-carryIn       = if category.carryover: max(0, prev_month.surplus)
-                else 0
-realSpent     = Σ tx.amount  where resolveCategoryId(tx.category)=catId AND date in monthKey
-plannedFuture = Σ entry.saida where entry.categoryId=catId
-                AND entry not matched to a real tx
-                AND (entry.source ∈ {bill,subscription} OR entry.date >= today)
-total         = realSpent + plannedFuture
-pct           = total / (limit + carryIn)
-status        = pct < 0.8 → 'ok' | < 1.0 → 'warning' | >= 1.0 → 'over'
+limit          = limits[catId][monthKey]
+                 ?? lastKnownPrevMonth(catId, monthKey)  -- only the IMMEDIATELY prior monthKey
+                 ?? 0
+carryIn        = if category.carryover && prevMonth: max(0, prevMonth.surplus(catId))
+                 else 0
+                 -- prevMonth itself must be computed with carryIn=0 (depth cap = 1)
+```
+
+**Expense rules (kind === 'expense')**
+
+```
+realSpent      = Σ |tx.amount| where effectiveCategoryId(tx, matchedEntry?) = catId
+                 AND tx.amount < 0 AND tx.type !== 'transfer'
+                 AND tx.date in monthKey
+plannedFuture  = Σ entry.saida where entry.categoryId = catId
+                 AND entry NOT matched to a real tx (per §7)
+                 AND (entry.source ∈ {bill,subscription} OR entry.date >= today)
+total          = realSpent + plannedFuture
+pct            = total / max(1, limit + carryIn)
+status         = pct < 0.8 → 'ok' | < 1.0 → 'warning' | >= 1.0 → 'over'
+surplus(catId) = (limit + carryIn) - total          -- can be negative; carryIn clamps later
+```
+
+**Income rules (kind === 'income')**
+
+```
+realReceived   = Σ tx.amount where effectiveCategoryId(tx, matchedEntry?) = catId
+                 AND tx.amount > 0 AND tx.type !== 'transfer'
+                 AND tx.date in monthKey
+plannedFuture  = Σ entry.entrada where entry.categoryId = catId
+                 AND entry NOT matched to a real tx
+                 AND entry.date >= today
+total          = realReceived + plannedFuture
+pct            = total / max(1, limit + carryIn)            -- limit here = target income
+status         = pct < 0.8 → 'over' (under target, BAD)
+               | < 1.0 → 'warning'
+               | >= 1.0 → 'ok' (hit/exceeded target, GOOD)
+                 -- thresholds inverted; bar color tiers in Slice 4 honor this
+surplus        = N/A for income (no carryover for receitas in v1)
+```
+
+**effectiveCategoryId**
+
+```
+effectiveCategoryId(tx, matchedEntry?) =
+  matchedEntry?.categoryId                  -- inherit from planned entry when matched (§7)
+  ?? resolveCategoryId(tx.category)
+  ?? resolveCategoryId(tx.description)      -- fallback: KEYWORDS pass on description
+  ?? 'Outros'
 ```
 
 ### 4.4 Source-of-truth model
@@ -122,12 +162,27 @@ status        = pct < 0.8 → 'ok' | < 1.0 → 'warning' | >= 1.0 → 'over'
 
 **Migration steps**
 1. `db:push` adds tables/column
-2. Insert curated seed (idempotent on name)
-3. `SELECT DISTINCT category FROM bills`, `subscriptions`
-4. Fuzzy-match each to seed via accent-stripped lowercase + alias map from `lib/auto-detect.ts` KEYWORDS
+2. Insert curated seed (idempotent on name, case-insensitive via `COLLATE NOCASE`)
+3. `SELECT DISTINCT category FROM subscriptions` — primary signal. **Note:** `bills.category` is overwhelmingly `'Outros'` in practice (`pluggy.ts:224`, `bills-list.tsx:51,57` default to `'Outros'`); distinct-category step on `bills` produces near-zero useful bindings — skip or treat as low-yield
+4. Fuzzy-match each via accent-stripped lowercase + `KEYWORD_CATEGORY_MAP` (below) layered over `KEYWORDS` from `lib/auto-detect.ts`
 5. Update `cashFlowEntries.categoryId` where `sourceRefId` references a bound bill/sub
 6. Unmatched → `Outros` or null (logged for review)
 7. Wrap in transaction; backup `cashFlowEntries` to `cashFlowEntries_backup_<ts>` before mass UPDATE
+8. Script imports `seedCuratedCategories()` and `bindLegacyCategories()` from `src/lib/budget-seed.ts` — same helpers used by `/api/budgets/seed` and `/api/budgets/bind-legacy` (single source of truth, see §8)
+
+**KEYWORD_CATEGORY_MAP** — bridges `auto-detect.ts` KEYWORDS output to curated taxonomy
+
+```ts
+// auto-detect.ts produces { name, category } where category ∈ {Streaming, IA, Outros, ...}
+// Curated taxonomy uses {Assinaturas, Moradia, Mercado, ...}
+// This map closes the gap so Netflix → Streaming → Assinaturas (not Outros).
+export const KEYWORD_CATEGORY_MAP: Record<string, string> = {
+  Streaming:   'Assinaturas',
+  IA:          'Assinaturas',
+  Outros:      'Outros',
+  // Extend as new KEYWORDS categories appear.
+};
+```
 
 **Curated seed**
 
@@ -202,12 +257,12 @@ export interface BudgetRow {
   icon: string;
   kind: 'expense' | 'income';
   limit: number;          // effective for monthKey
-  carryIn: number;        // 0 if carryover off or first month
-  realSpent: number;      // sum of resolved real tx
-  plannedFuture: number;  // sum of unmatched/future planned entries
+  carryIn: number;        // 0 if carryover off, depth>1, or first month
+  realSpent: number;      // expense: |neg tx|; income: pos tx (named realReceived in §4.3)
+  plannedFuture: number;  // unmatched/future planned entries
   total: number;          // realSpent + plannedFuture
-  pct: number;            // total / (limit + carryIn)
-  status: 'ok' | 'warning' | 'over';
+  pct: number;            // total / max(1, limit + carryIn)
+  status: 'ok' | 'warning' | 'over';  // thresholds inverted for income (§4.3)
 }
 
 export interface BudgetMonth {
@@ -216,8 +271,25 @@ export interface BudgetMonth {
   income: BudgetRow[];
 }
 
-export function computeBudgetMonth(monthKey: string): BudgetMonth;
+export interface ComputeBudgetInput {
+  categories: BudgetCategory[];
+  limits: BudgetLimit[];
+  entries: CashFlowEntry[];
+  transactions: Transaction[];
+  prevMonth?: BudgetMonth;   // depth-1 cap: passed in by caller, never recursed inside compute
+  today?: Date;              // defaults to new Date(); injectable for tests
+}
+
+// Pure function — no DB reads. SSR/API layer loads inputs.
+export function computeBudgetMonth(monthKey: string, data: ComputeBudgetInput): BudgetMonth;
+
 export function resolveCategoryId(rawCategory: string): string | null;
+
+// Used inside computeBudgetMonth; exported for unit tests.
+export function effectiveCategoryId(
+  tx: Transaction,
+  matchedEntry?: CashFlowEntry,
+): string | null;
 ```
 
 ## 7. Reconciliation rules
@@ -229,7 +301,9 @@ For each `cashFlowEntry` with `source ∈ {bill, subscription}`:
   - `amount < 0` (expense), `type !== 'transfer'`
   - `|date - entry.date| ≤ 5 days`
   - `||amount| - entry.saida| / entry.saida ≤ 0.10`
-- If found → entry is "matched"; excluded from `plannedFuture`; tx counts toward `realSpent` via category resolution
+- If found → entry is "matched"; excluded from `plannedFuture`; tx counts toward `realSpent` under the **inherited category**:
+  - `effectiveCategoryId(tx, matchedEntry) = matchedEntry.categoryId ?? resolveCategoryId(tx.category) ?? resolveCategoryId(tx.description) ?? 'Outros'`
+  - **Why:** an entry tagged `Moradia` paired with a bank tx whose `category` is blank must still land on the `Moradia` bar; without inheritance, the spend silently drops into `Outros` and the user can't see why
 - If not found → entry stays in `plannedFuture` (treat as forecast)
 
 ### Manual entries (time-switchover)
@@ -239,26 +313,55 @@ For each `cashFlowEntry` with `source ∈ {bill, subscription}`:
 
 ### resolveCategoryId
 
+Two-pass lookup. The first pass hits curated names directly; the second runs the input through `auto-detect.ts` KEYWORDS, then translates via `KEYWORD_CATEGORY_MAP` (defined in §5 Slice 1).
+
 ```
 NORMALIZE(s) = lowercase + NFD-strip-accents + trim
-CATEGORY_ALIASES built at startup from:
-  1. budget_categories.name (canonical)
-  2. KEYWORDS from lib/auto-detect.ts (e.g. "netflix" → Assinaturas)
-Cache invalidated on category mutation.
-Unknown → "Outros" (curated).
+
+Pass 1 — direct curated lookup
+  ALIAS_TABLE: Map<normalized_name, catId>
+    built at startup from budget_categories (canonical names)
+    cache invalidated on category mutation
+  hit → return catId
+
+Pass 2 — KEYWORDS-bridged lookup
+  detect = auto-detect.ts detectFromText(input)
+    → { name, category }   // e.g. "NETFLIX.COM" → {name:'Netflix', category:'Streaming'}
+  curated = KEYWORD_CATEGORY_MAP[detect.category]
+    → "Streaming" → "Assinaturas"
+  hit → return ALIAS_TABLE[NORMALIZE(curated)]
+
+Default → "Outros" (curated)
 ```
+
+**Worked examples**
+
+| Input source | Value | Pass 1 hit? | Pass 2 | Final |
+|---|---|---|---|---|
+| `tx.category` | `'Assinaturas'` | yes | — | `Assinaturas` |
+| `tx.category` | `'Streaming'` | no | `Streaming → Assinaturas` | `Assinaturas` |
+| `tx.description` | `'NETFLIX.COM 12/12'` | no (passed via tx.category=''; fallback to description in `effectiveCategoryId`) | KEYWORDS → `Streaming` → `Assinaturas` | `Assinaturas` |
+| `tx.category` | `''` and description `'PADARIA PAO QUENTE'` | no | KEYWORDS no hit | `Outros` |
 
 ### Carryover
 
+Depth capped at 1. Caller computes `prevMonth` once (with `carryIn=0` inside its own compute) and passes it in via `ComputeBudgetInput.prevMonth`. The compute function never recurses.
+
 ```
-prev = prevMonthKey(monthKey)
-for each carryover-enabled category:
-  prevRow = computeBudgetMonth(prev).expense.find(...)
-  surplus = (prevRow.limit + prevRow.carryIn) - prevRow.total
-  carryIn[catId] = max(0, surplus)  // never negative-display
+// Caller (SSR / API):
+const prevMonth = computeBudgetMonth(prevMonthKey(monthKey), {
+  ...inputsForPrev,
+  prevMonth: undefined,     // depth-1 cap: prev's prev is NOT walked
+});
+const month = computeBudgetMonth(monthKey, { ...inputs, prevMonth });
+
+// Inside compute, per carryover-enabled category:
+const prevRow = prevMonth?.expense.find(r => r.catId === cat.id);
+const surplus = prevRow ? (prevRow.limit + prevRow.carryIn) - prevRow.total : 0;
+carryIn[catId] = Math.max(0, surplus);   // deficit → 0; never negative-display
 ```
 
-Recursion bound: one prev-month lookup per compute call.
+**Trade-off acknowledged:** capping at depth 1 means a long-running surplus from many months ago does not propagate forward. Acceptable for v1 — keeps compute deterministic and cheap on every `/fluxo` SSR render.
 
 ## 8. API contracts
 
@@ -282,13 +385,25 @@ POST   /api/budgets/bind-legacy              one-shot fuzzy bind
 
 | Field | Rule | Error |
 |-------|------|-------|
-| `category.name` | non-empty, unique (case-insensitive) | 400 `"Nome já existe"` |
+| `category.name` | non-empty, unique case-insensitive (enforced by `UNIQUE ... COLLATE NOCASE` in §4.1; route also normalizes for friendlier error) | 400 `"Nome já existe"` |
 | `category.kind` | enum `'expense' \| 'income'` | 400 |
 | `category.color` | `/^#[0-9a-f]{6}$/i` | 400 |
 | `category.icon` | non-empty | 400 |
 | `limit.amount` | finite, ≥ 0 | 400 |
 | `limit.monthKey` | `/^\d{4}-\d{2}$/` | 400 |
-| DELETE with refs | check `cashFlowEntries.categoryId` | 409 `{error, refs}` |
+| DELETE with refs | check `cashFlowEntries.categoryId` (FK is `ON DELETE NO ACTION`; route surfaces 409 before SQLite raises) | 409 `{error, refs}` |
+
+### Seed / bind-legacy / migration script — division of labor
+
+Single source of truth for seeding and fuzzy binding logic: `src/lib/budget-seed.ts`. Three callers:
+
+| Caller | Purpose | Helpers used |
+|---|---|---|
+| `POST /api/budgets/seed` | Idempotent runtime path. Safe to call from UI bootstrap. | `seedCuratedCategories()` |
+| `POST /api/budgets/bind-legacy` | One-shot runtime path. Triggered from `/orcamento` admin action. | `bindLegacyCategories()` |
+| `scripts/migrate-budgets.ts` | One-shot CLI path (CI / first deploy). Same helpers; adds backup table and transaction wrapper around the mass `UPDATE cashFlowEntries`. | `seedCuratedCategories()`, `bindLegacyCategories()` |
+
+Rule: no fuzzy-bind logic outside `budget-seed.ts`. The two API routes and the script differ only in transport (HTTP vs CLI) and the script's pre-update backup step.
 
 ## 9. Error handling
 
@@ -306,7 +421,7 @@ POST   /api/budgets/bind-legacy              one-shot fuzzy bind
 | Bill/sub category renamed mid-month | Rebind on save; existing entries unchanged until manual recategorize |
 | Tx amount > entry.saida by > 10% | No match → tx counted as real, entry counted as planned (double counts; user reconciles manually) |
 | Multiple tx match one entry | First match wins; rest count as real |
-| Month with no budget_limits row | Falls back to lastKnown; if none → 0, status ok |
+| Month with no budget_limits row | `lastKnownPrevMonth` falls back **only to the immediately prior monthKey** (not arbitrarily far back) — avoids a one-off ago/2026 limit silently persisting forever. If the prev month has no row either → `limit = 0`, status `ok`. Future enhancement: surface a "limite herdado de YYYY-MM" badge in bar tooltip if/when fallback is broadened |
 | Category archived | Hidden from sidebar; historical entries keep categoryId; visible under Arquivadas tab |
 | Carryover negative (deficit) | Reduces effective limit; carryIn floored at 0 for display |
 
@@ -314,13 +429,14 @@ POST   /api/budgets/bind-legacy              one-shot fuzzy bind
 
 ### Unit (Vitest, mirror existing patterns)
 
-- `src/__tests__/budget-seed.test.ts` — curated seed idempotency, fuzzy bind, accent normalization
-- `src/__tests__/budgets-compute.test.ts` — `computeBudgetMonth` across past/future/mixed scenarios, status thresholds, `resolveCategoryId` aliases
-- `src/__tests__/budgets-reconcile.test.ts` — bill/sub match heuristic, manual time-switchover, carryover surplus/deficit math
+- `src/__tests__/budget-seed.test.ts` — curated seed idempotency, fuzzy bind, accent normalization, `KEYWORD_CATEGORY_MAP` (Netflix → Streaming → Assinaturas, **not** Outros)
+- `src/__tests__/budgets-compute.test.ts` — `computeBudgetMonth` across past/future/mixed scenarios, status thresholds (expense vs. income inversion), `resolveCategoryId` two-pass aliases, `effectiveCategoryId` matched-entry inheritance (entry.categoryId=Moradia + tx.category='' → Moradia, not Outros)
+- `src/__tests__/budgets-reconcile.test.ts` — bill/sub match heuristic, manual time-switchover, carryover surplus/deficit math, **depth-1 cap** (month N-2 surplus does NOT reach month N)
 
 ### API integration (in-memory SQLite via better-sqlite3 `:memory:`)
 
-- `src/__tests__/budgets-api.test.ts` — categories CRUD (incl. 409 on delete with refs), limits upsert, limits copy. Uses a fresh in-memory DB per test; no production DB hit. If repo lacks the integration harness, scope this to unit-level coverage of the route handler functions instead.
+- `src/__tests__/budgets-api.test.ts` — categories CRUD (incl. 409 on delete with refs), limits upsert, limits copy. Reuses the existing `:memory:` harness pattern already proven in `src/__tests__/cashflow-api.test.ts`; fresh DB per test, no production DB hit.
+- **Prerequisite:** regenerate `src/__tests__/fixtures/schema.sql` to include `budget_categories`, `budget_limits`, and the new `cashFlowEntries.categoryId` column. Existing tests will break until the fixture is updated.
 
 ### Manual smoke per slice
 
@@ -337,7 +453,7 @@ POST   /api/budgets/bind-legacy              one-shot fuzzy bind
 
 ### Regression
 
-`autoSeedPlan` in `lib/cashflow.ts` extended to populate `categoryId` from bill/sub via `resolveCategoryId`. Existing tests must continue to pass.
+`autoSeedPlan` in `lib/cashflow.ts` extended to populate `categoryId` from bill/sub. **Resolution order** for the seeded entries: (1) bill/sub `name` via `resolveCategoryId` (KEYWORDS-bridged), (2) bill/sub `category` field, (3) `'Outros'`. Name-first because `bills.category='Outros'` is the prevailing reality (§5 Slice 1) — using `category` first would land every Netflix subscription in `Outros`. Existing tests must continue to pass.
 
 ## 12. Open items (deferred, not blockers)
 
