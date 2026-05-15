@@ -8,7 +8,8 @@
     "start": "next start",
     "test": "vitest",
     "test:run": "vitest run",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "migrate:budgets": "tsx scripts/migrate-budgets.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
@@ -26,6 +27,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "drizzle-kit": "^0.22.8",
+    "tsx": "^4.22.0",
     "typescript": "^5",
     "vitest": "^1.6.0"
   }
