@@ -40,8 +40,29 @@ CREATE TABLE `cash_flow_entries` (
 	`saida` real DEFAULT 0 NOT NULL,
 	`source` text DEFAULT 'manual' NOT NULL,
 	`source_ref_id` text,
+	`category_id` text,
 	`created_at` integer NOT NULL,
-	FOREIGN KEY (`month_id`) REFERENCES `cash_flow_months`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`month_id`) REFERENCES `cash_flow_months`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`category_id`) REFERENCES `budget_categories`(`id`) ON UPDATE no action ON DELETE no action
+);
+CREATE TABLE `budget_categories` (
+	`id` text PRIMARY KEY NOT NULL,
+	`name` text NOT NULL,
+	`kind` text NOT NULL,
+	`color` text NOT NULL,
+	`icon` text NOT NULL,
+	`carryover` integer DEFAULT 0 NOT NULL,
+	`sort_order` integer DEFAULT 0 NOT NULL,
+	`is_archived` integer DEFAULT 0 NOT NULL,
+	`created_at` integer NOT NULL
+);
+CREATE TABLE `budget_limits` (
+	`id` text PRIMARY KEY NOT NULL,
+	`category_id` text NOT NULL,
+	`month_key` text NOT NULL,
+	`amount` real NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`category_id`) REFERENCES `budget_categories`(`id`) ON UPDATE no action ON DELETE cascade
 );
 CREATE TABLE `cash_flow_months` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -113,3 +134,5 @@ CREATE UNIQUE INDEX `accounts_pluggy_id_unique` ON `accounts` (`pluggy_id`);
 CREATE UNIQUE INDEX `cash_flow_entries_src_uniq` ON `cash_flow_entries` (`month_id`,`source`,`source_ref_id`);
 CREATE UNIQUE INDEX `cash_flow_months_key_unique` ON `cash_flow_months` (`key`);
 CREATE UNIQUE INDEX `transactions_pluggy_id_unique` ON `transactions` (`pluggy_id`);
+CREATE UNIQUE INDEX `budget_categories_name_unique` ON `budget_categories` (`name` COLLATE NOCASE);
+CREATE UNIQUE INDEX `budget_limits_cat_month_unique` ON `budget_limits` (`category_id`,`month_key`);
