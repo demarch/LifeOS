@@ -1,0 +1,10 @@
+{
+  "by": "default",
+  "valid_key": true,
+  "results": {
+    "XYZW9": {
+      "error": true,
+      "message": "Symbol not found"
+    }
+  }
+}

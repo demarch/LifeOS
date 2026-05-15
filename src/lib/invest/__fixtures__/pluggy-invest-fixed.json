@@ -1,0 +1,30 @@
+[
+  {
+    "id": "pluggy-pos-3",
+    "code": null,
+    "name": "CDB 100% CDI",
+    "type": "FIXED_INCOME",
+    "subtype": "CDB",
+    "quantity": 1,
+    "amount": 10000,
+    "balance": 11250.55,
+    "amountWithdrawal": 11250.55,
+    "status": "ACTIVE",
+    "issuer": "Banco X",
+    "rate": 100,
+    "rateType": "CDI"
+  },
+  {
+    "id": "pluggy-pos-4",
+    "code": null,
+    "name": "Tesouro IPCA+ 2035",
+    "type": "FIXED_INCOME",
+    "subtype": "TESOURO",
+    "quantity": 1,
+    "amount": 5000,
+    "balance": 5310.10,
+    "amountWithdrawal": 5310.10,
+    "status": "ACTIVE",
+    "issuer": "Tesouro Nacional"
+  }
+]

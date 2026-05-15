@@ -120,6 +120,39 @@ export const cashFlowEntries = sqliteTable('cash_flow_entries', {
   uniqSrc: uniqueIndex('cash_flow_entries_src_uniq').on(t.monthId, t.source, t.sourceRefId),
 }));
 
+export const positions = sqliteTable('positions', {
+  id:            text('id').primaryKey(),
+  pluggyId:      text('pluggy_id').unique(),
+  accountId:     text('account_id').references(() => accounts.id),
+  ticker:        text('ticker').notNull(),
+  name:          text('name').notNull(),
+  assetClass:    text('asset_class').notNull(),
+  quantity:      real('quantity').notNull(),
+  avgPrice:      real('avg_price').notNull(),
+  currentValue:  real('current_value').notNull(),
+  lastQuote:     real('last_quote'),
+  lastQuoteAt:   integer('last_quote_at'),
+  updatedAt:     integer('updated_at').notNull(),
+});
+
+export const quotesCache = sqliteTable('quotes_cache', {
+  ticker:        text('ticker').primaryKey(),
+  price:         real('price').notNull(),
+  changePercent: real('change_percent'),
+  fetchedAt:     integer('fetched_at').notNull(),
+});
+
+export const portfolioSnapshots = sqliteTable('portfolio_snapshots', {
+  id:               text('id').primaryKey(),
+  snapshotDate:     text('snapshot_date').notNull().unique(),
+  totalValue:       real('total_value').notNull(),
+  stocksValue:      real('stocks_value').notNull(),
+  fiisValue:        real('fiis_value').notNull(),
+  fixedIncomeValue: real('fixed_income_value').notNull(),
+  totalCost:        real('total_cost').notNull(),
+  createdAt:        integer('created_at').notNull(),
+});
+
 export type Account           = typeof accounts.$inferSelect;
 export type Transaction       = typeof transactions.$inferSelect;
 export type Bill              = typeof bills.$inferSelect;
@@ -131,3 +164,6 @@ export type ShoppingSessionItem = typeof shoppingSessionItems.$inferSelect;
 export type SyncLogEntry      = typeof syncLog.$inferSelect;
 export type CashFlowMonth     = typeof cashFlowMonths.$inferSelect;
 export type CashFlowEntry     = typeof cashFlowEntries.$inferSelect;
+export type Position          = typeof positions.$inferSelect;
+export type QuoteCacheEntry   = typeof quotesCache.$inferSelect;
+export type PortfolioSnapshot = typeof portfolioSnapshots.$inferSelect;
